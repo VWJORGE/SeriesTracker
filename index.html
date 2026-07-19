@@ -1,0 +1,11 @@
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>SeriesTracker</title><style>body{font-family:Arial;background:#141414;color:#fff;margin:0}header{background:#e50914;padding:18px;text-align:center;font-size:28px}main{max-width:900px;margin:auto;padding:20px}input,button{padding:10px;border:none;border-radius:8px}button{background:#e50914;color:#fff}.card{background:#222;padding:15px;border-radius:12px;margin:10px 0}</style></head><body><header>🎬 SeriesTracker</header><main><input id='search' placeholder='Buscar...'><button onclick='addSerie()'>➕ Añadir</button><div id='stats'></div><div id='list'></div></main><script>
+let data=JSON.parse(localStorage.getItem('seriestracker')||'[{"title":"Breaking Bad","status":"Terminada","season":"5","episode":"16","fav":true,"rating":10}]');
+const list=document.getElementById('list'),stats=document.getElementById('stats'),search=document.getElementById('search');
+function save(){localStorage.setItem('seriestracker',JSON.stringify(data))}
+function render(){let q=search.value.toLowerCase();list.innerHTML='';let t=0,v=0,p=0;data.filter(s=>s.title.toLowerCase().includes(q)).forEach((s,i)=>{if(s.status=='Terminada')t++;else if(s.status=='Viendo')v++;else p++;list.innerHTML+=`<div class="card"><h2>${s.title}</h2><p>${s.status} · T${s.season}E${s.episode}</p><p>⭐${s.rating} ${s.fav?'❤️':''}</p><button onclick="editSerie(${i})">Editar</button> <button onclick="fav(${i})">❤️</button> <button onclick="delS(${i})">🗑️</button></div>`});stats.textContent=`Total ${data.length} | Terminadas ${t} | Viendo ${v} | Pendientes ${p}`;save();}
+function addSerie(){let n=prompt('Nombre');if(!n)return;data.push({title:n,status:'Pendiente',season:'1',episode:'1',fav:false,rating:0});render()}
+function editSerie(i){let s=data[i];s.status=prompt('Estado',s.status)||s.status;s.season=prompt('Temporada',s.season)||s.season;s.episode=prompt('Episodio',s.episode)||s.episode;s.rating=prompt('Nota',s.rating)||s.rating;render()}
+function fav(i){data[i].fav=!data[i].fav;render()}
+function delS(i){if(confirm('Eliminar')){data.splice(i,1);render()}}
+search.oninput=render;render();
+</script></body></html>
