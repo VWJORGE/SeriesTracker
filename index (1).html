@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Lista</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg: #0b0b0d;
+    --bg-elev: #141416;
+    --card: #1c1c1f;
+    --card-hover: #262629;
+    --line: #2a2a2d;
+    --text: #f2f1ee;
+    --muted: #8c8c92;
+    --red: #e50914;
+    --red-dim: #7a0a10;
+    --amber: #e2a53a;
+    --green: #3aa66b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family:'Inter', system-ui, sans-serif;
+    min-height:100vh;
+  }
+  .display{
+    font-family:'Bebas Neue', 'Inter', sans-serif;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- top bar ---------- */
+  header{
+    position: sticky;
+    top:0;
+    z-index: 20;
+    background: linear-gradient(180deg, rgba(11,11,13,0.98) 0%, rgba(11,11,13,0.90) 70%, rgba(11,11,13,0) 100%);
+    padding: 18px 28px 26px;
+    backdrop-filter: blur(4px);
+  }
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .logo{
+    color: var(--red);
+    font-size: 30px;
+    line-height:1;
+    white-space:nowrap;
+    text-shadow: 0 0 22px rgba(229,9,20,0.35);
+  }
+  .search-wrap{
+    flex: 1 1 240px;
+    max-width: 420px;
+    position: relative;
+  }
+  .search-wrap input{
+    width:100%;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 10px 14px 10px 38px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s ease;
+  }
+  .search-wrap input:focus{ border-color: var(--red); }
+  .search-wrap svg{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    width:16px; height:16px; opacity:.5;
+  }
+  .stats{
+    color: var(--muted);
+    font-size: 12.5px;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+  .stats b{ color: var(--text); font-weight: 700;}
+
+  .filters{
+    display:flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .pill{
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s ease;
+    font-family: inherit;
+  }
+  .pill:hover{ color: var(--text); border-color: #4a4a4f; }
+  .pill.active{
+    background: var(--red);
+    border-color: var(--red);
+    color: white;
+  }
+  .pill .count{ opacity:.7; margin-left:5px; font-weight:500;}
+
+  /* ---------- grid ---------- */
+  main{ padding: 4px 28px 120px; }
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+  }
+  .card{
+    position:relative;
+    aspect-ratio: 2/3;
+    border-radius: 8px;
+    overflow:hidden;
+    cursor:pointer;
+    border: 1px solid var(--line);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+  }
+  .card:hover{
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 14px 30px rgba(0,0,0,0.55);
+    border-color: #4a4a4f;
+    z-index: 5;
+  }
+  .card .letter{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Bebas Neue', sans-serif;
+    font-size: 54px;
+    color: rgba(255,255,255,0.18);
+    user-select:none;
+  }
+  .card .badge{
+    position:absolute;
+    top:8px;
+    right:8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 4px;
+    letter-spacing: .03em;
+  }
+  .badge.vista{ background: var(--green); color:#04160c; }
+  .badge.viendo{ background: var(--amber); color:#241800; }
+  .badge.pendiente{ background: #3a3a3f; color: #d8d8dc; }
+
+  .card .foot{
+    position:relative;
+    padding: 10px 10px 12px;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 40%, rgba(0,0,0,0.92) 100%);
+  }
+  .card .title{
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card .progress{
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .empty{
+    text-align:center;
+    padding: 80px 20px;
+    color: var(--muted);
+  }
+  .empty .display{ font-size: 30px; color: var(--text); margin-bottom: 8px;}
+
+  /* ---------- fab ---------- */
+  .fab{
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--red);
+    color: white;
+    border:none;
+    font-size: 28px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow: 0 8px 24px rgba(229,9,20,0.45);
+    z-index: 30;
+    transition: transform .15s ease;
+  }
+  .fab:hover{ transform: scale(1.08); }
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.65);
+    display:flex; align-items:center; justify-content:center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .modal{
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 380px;
+    padding: 24px;
+  }
+  .modal h2{
+    font-family:'Bebas Neue', sans-serif;
+    font-size: 24px;
+    margin: 0 0 18px;
+    letter-spacing: .03em;
+  }
+  .field{ margin-bottom: 14px; }
+  .field label{
+    display:block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .field input[type=text]{
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 14px;
+    outline:none;
+  }
+  .field input[type=text]:focus{ border-color: var(--red); }
+  .seg{
+    display:flex;
+    gap: 6px;
+  }
+  .seg button{
+    flex:1;
+    padding: 9px 4px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor:pointer;
+  }
+  .seg button.sel-vista{ background: var(--green); border-color: var(--green); color:#04160c;}
+  .seg button.sel-viendo{ background: var(--amber); border-color: var(--amber); color:#241800;}
+  .seg button.sel-pendiente{ background: #3a3a3f; border-color:#3a3a3f; color: var(--text);}
+  .modal-actions{
+    display:flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .btn{
+    flex:1;
+    padding: 11px;
+    border-radius: 6px;
+    border:none;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  .btn.primary{ background: var(--red); color:white;}
+  .btn.ghost{ background: transparent; border: 1px solid var(--line); color: var(--text);}
+  .btn.danger{ background: transparent; border: 1px solid var(--red-dim); color: var(--red);}
+  .btn:hover{ filter: brightness(1.1); }
+
+  ::-webkit-scrollbar{ width: 10px; }
+  ::-webkit-scrollbar-thumb{ background: #2a2a2d; border-radius: 6px; }
+
+  @media (max-width: 520px){
+    header{ padding: 14px 16px 18px; }
+    main{ padding: 4px 16px 120px; }
+    .stats{ display:none; }
+    .grid{ grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="topbar">
+    <div class="logo display">MI LISTA</div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="search" type="text" placeholder="Buscar serie...">
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+  <div class="filters" id="filters"></div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">
+    <div class="display">Sin resultados</div>
+    <div>Prueba otra búsqueda o añade una serie nueva.</div>
+  </div>
+</main>
+
+<button class="fab" id="addBtn" title="Añadir serie">+</button>
+
+<div class="overlay" id="overlay" style="display:none">
+  <div class="modal">
+    <h2 id="modalTitle" class="display">Añadir serie</h2>
+    <div class="field">
+      <label>Título</label>
+      <input type="text" id="fTitle" placeholder="Nombre de la serie">
+    </div>
+    <div class="field">
+      <label>Progreso (opcional, ej: T2, 3x5)</label>
+      <input type="text" id="fProgress" placeholder="T1, 4x2...">
+    </div>
+    <div class="field">
+      <label>Estado</label>
+      <div class="seg" id="statusSeg">
+        <button data-v="pendiente">Pendiente</button>
+        <button data-v="viendo">Viendo</button>
+        <button data-v="vista">Vista</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="deleteBtn" style="display:none">Eliminar</button>
+      <button class="btn ghost" id="cancelBtn">Cancelar</button>
+      <button class="btn primary" id="saveBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SEED = [{"title": "12 monos", "status": "vista", "progress": ""}, {"title": "56 dias", "status": "pendiente", "progress": ""}, {"title": "1883", "status": "pendiente", "progress": ""}, {"title": "1923", "status": "pendiente", "progress": ""}, {"title": "1992", "status": "pendiente", "progress": ""}, {"title": "1944", "status": "pendiente", "progress": ""}, {"title": "30 Monedas", "status": "pendiente", "progress": ""}, {"title": "50 M2", "status": "pendiente", "progress": ""}, {"title": "Adult Material", "status": "pendiente", "progress": ""}, {"title": "Alias", "status": "vista", "progress": ""}, {"title": "Alien planeta tierra", "status": "pendiente", "progress": ""}, {"title": "Amor y Anarquia", "status": "pendiente", "progress": ""}, {"title": "Arenas movedizas", "status": "pendiente", "progress": ""}, {"title": "Arrrow", "status": "vista", "progress": ""}, {"title": "Ahoka", "status": "pendiente", "progress": ""}, {"title": "Ascensión", "status": "vista", "progress": ""}, {"title": "Ahsoka", "status": "vista", "progress": ""}, {"title": "Antidisturbios", "status": "pendiente", "progress": ""}, {"title": "Asalto de helicóptero", "status": "pendiente", "progress": ""}, {"title": "Atrapados", "status": "pendiente", "progress": ""}, {"title": "Auga seca", "status": "pendiente", "progress": ""}, {"title": "Bajo escucha", "status": "pendiente", "progress": ""}, {"title": "Ballard", "status": "pendiente", "progress": ""}, {"title": "Ballers", "status": "vista", "progress": ""}, {"title": "Banshee", "status": "vista", "progress": ""}, {"title": "Barracuda Queens", "status": "pendiente", "progress": ""}, {"title": "Barbarians", "status": "pendiente", "progress": ""}, {"title": "Barbaros al despertar", "status": "pendiente", "progress": ""}, {"title": "Barry", "status": "pendiente", "progress": ""}, {"title": "Beauty in Black", "status": "pendiente", "progress": ""}, {"title": "Better call saul 4x1", "status": "viendo", "progress": "4x1"}, {"title": "Black sail", "status": "vista", "progress": ""}, {"title": "Blindspot", "status": "pendiente", "progress": ""}, {"title": "Bloodline", "status": "vista", "progress": ""}, {"title": "Blue Moon", "status": "pendiente", "progress": ""}, {"title": "Boardwalk Empire", "status": "vista", "progress": ""}, {"title": "Bordetown (Sorjonen)", "status": "vista", "progress": ""}, {"title": "Borgen", "status": "pendiente", "progress": ""}, {"title": "Bosch", "status": "pendiente", "progress": ""}, {"title": "Bosch legacy", "status": "pendiente", "progress": ""}, {"title": "Bosque adentro", "status": "pendiente", "progress": ""}, {"title": "Boss", "status": "vista", "progress": ""}, {"title": "Breaking bad", "status": "vista", "progress": ""}, {"title": "Billy el niño", "status": "pendiente", "progress": ""}, {"title": "Britania 4", "status": "pendiente", "progress": ""}, {"title": "Broadchurch", "status": "pendiente", "progress": ""}, {"title": "Bron", "status": "pendiente", "progress": ""}, {"title": "Bruja escarlata y Vision", "status": "vista", "progress": ""}, {"title": "Califato", "status": "vista", "progress": ""}, {"title": "Californication", "status": "vista", "progress": ""}, {"title": "Camilla Lackberg s the Fjalibacka", "status": "pendiente", "progress": ""}, {"title": "Cara a Cara", "status": "pendiente", "progress": ""}, {"title": "Caza de Brujas", "status": "vista", "progress": ""}, {"title": "Chacal", "status": "pendiente", "progress": ""}, {"title": "Chernobyl", "status": "vista", "progress": ""}, {"title": "Clanes", "status": "pendiente", "progress": ""}, {"title": "Codename Anika", "status": "pendiente", "progress": ""}, {"title": "Collateral", "status": "pendiente", "progress": ""}, {"title": "Copper", "status": "vista", "progress": ""}, {"title": "Criado por lobos t1", "status": "viendo", "progress": "T1"}, {"title": "Coliseum", "status": "vista", "progress": ""}, {"title": "Cypher", "status": "pendiente", "progress": ""}, {"title": "Deadwind", "status": "vista", "progress": ""}, {"title": "Deadwood", "status": "vista", "progress": ""}, {"title": "Dinero facil", "status": "pendiente", "progress": ""}, {"title": "Django", "status": "vista", "progress": ""}, {"title": "Domina", "status": "pendiente", "progress": ""}, {"title": "Dracula", "status": "vista", "progress": ""}, {"title": "Dublin Muders", "status": "pendiente", "progress": ""}, {"title": "Dune", "status": "pendiente", "progress": ""}, {"title": "El caso de alcacer", "status": "vista", "progress": ""}, {"title": "El caso Hatung", "status": "pendiente", "progress": ""}, {"title": "El combatiente", "status": "vista", "progress": ""}, {"title": "El corazon del imperio", "status": "pendiente", "progress": ""}, {"title": "El cuento de la criada", "status": "pendiente", "progress": ""}, {"title": "El inmortal", "status": "pendiente", "progress": ""}, {"title": "El joven Wallander", "status": "pendiente", "progress": ""}, {"title": "El maestro carnicero", "status": "vista", "progress": ""}, {"title": "El manipulador", "status": "pendiente", "progress": ""}, {"title": "El Pacificador", "status": "pendiente", "progress": ""}, {"title": "El padrino de Harlem", "status": "pendiente", "progress": ""}, {"title": "El pionero", "status": "vista", "progress": ""}, {"title": "El Pinguino", "status": "pendiente", "progress": ""}, {"title": "El pájaro carpintero", "status": "vista", "progress": ""}, {"title": "EL Rey", "status": "pendiente", "progress": ""}, {"title": "El visitante", "status": "vista", "progress": ""}, {"title": "El último baile", "status": "vista", "progress": ""}, {"title": "El sequito", "status": "pendiente", "progress": ""}, {"title": "Enemiga del pueblo", "status": "pendiente", "progress": ""}, {"title": "Eta, el fin del silencio", "status": "vista", "progress": ""}, {"title": "Entre Tierras", "status": "pendiente", "progress": ""}, {"title": "Euphoria", "status": "pendiente", "progress": ""}, {"title": "Falcon y el soldado de invierno", "status": "pendiente", "progress": ""}, {"title": "Falling skies", "status": "vista", "progress": ""}, {"title": "Fariña", "status": "pendiente", "progress": ""}, {"title": "Ferry", "status": "pendiente", "progress": ""}, {"title": "Firefly", "status": "vista", "progress": ""}, {"title": "Frontera", "status": "vista", "progress": ""}, {"title": "Furia", "status": "pendiente", "progress": ""}, {"title": "GEO Mas alla del limite", "status": "pendiente", "progress": ""}, {"title": "Gambito de dama", "status": "pendiente", "progress": ""}, {"title": "Gangs of london", "status": "pendiente", "progress": ""}, {"title": "Generacion V", "status": "pendiente", "progress": ""}, {"title": "Gigantes", "status": "pendiente", "progress": ""}, {"title": "Godless", "status": "pendiente", "progress": ""}, {"title": "Goliath", "status": "pendiente", "progress": ""}, {"title": "Gomorra", "status": "pendiente", "progress": ""}, {"title": "Guerreras 2", "status": "pendiente", "progress": ""}, {"title": "Habitacion 301", "status": "pendiente", "progress": ""}, {"title": "Halt and Catch Fire (T4) - [F.C]", "status": "viendo", "progress": "T4"}, {"title": "Hasta el cielo", "status": "pendiente", "progress": ""}, {"title": "Hélix", "status": "vista", "progress": ""}, {"title": "Helsinki, unidad de menores", "status": "pendiente", "progress": ""}, {"title": "Helstrom", "status": "pendiente", "progress": ""}, {"title": "Heroes del Silencio", "status": "pendiente", "progress": ""}, {"title": "Hightown", "status": "pendiente", "progress": ""}, {"title": "Hijos de la anarquia", "status": "vista", "progress": ""}, {"title": "Hijos Dune", "status": "pendiente", "progress": ""}, {"title": "Hijos de tercer reich", "status": "vista", "progress": ""}, {"title": "Homeland", "status": "vista", "progress": ""}, {"title": "Houdini", "status": "vista", "progress": ""}, {"title": "House of lies", "status": "vista", "progress": ""}, {"title": "Héroes, silencio y rock and rollo.", "status": "vista", "progress": ""}, {"title": "Infierno sobre ruedas", "status": "vista", "progress": ""}, {"title": "Invasión Secreta", "status": "vista", "progress": ""}, {"title": "Juego de tronos", "status": "vista", "progress": ""}, {"title": "Justified", "status": "vista", "progress": ""}, {"title": "Katla t1", "status": "viendo", "progress": "T1"}, {"title": "La casa de papel", "status": "pendiente", "progress": ""}, {"title": "La casa del dragon", "status": "pendiente", "progress": ""}, {"title": "La chica desaparecida", "status": "pendiente", "progress": ""}, {"title": "La conjura contra américa", "status": "vista", "progress": ""}, {"title": "La cúpula", "status": "vista", "progress": ""}, {"title": "La isla del Salmon y la discordia T1", "status": "viendo", "progress": "T1"}, {"title": "La princesa blanca", "status": "pendiente", "progress": ""}, {"title": "La reina blanca", "status": "pendiente", "progress": ""}, {"title": "La reina de las sombras", "status": "vista", "progress": ""}, {"title": "La remesa Mala t1", "status": "viendo", "progress": "T1"}, {"title": "Llamame Bruna", "status": "pendiente", "progress": ""}, {"title": "Loki", "status": "pendiente", "progress": ""}, {"title": "Longmire", "status": "pendiente", "progress": ""}, {"title": "Los 100", "status": "vista", "progress": ""}, {"title": "Los anillos al poder", "status": "pendiente", "progress": ""}, {"title": "Los asesinatos del Valhalla", "status": "vista", "progress": ""}, {"title": "Los Borgia", "status": "pendiente", "progress": ""}, {"title": "Los Pilares de la Tierra", "status": "pendiente", "progress": ""}, {"title": "Los Soprano", "status": "vista", "progress": ""}, {"title": "Los tudor", "status": "vista", "progress": ""}, {"title": "Malaka", "status": "pendiente", "progress": ""}, {"title": "Mare Easttown", "status": "vista", "progress": ""}, {"title": "Mayans", "status": "pendiente", "progress": ""}, {"title": "Mr Mercedes", "status": "pendiente", "progress": ""}, {"title": "Mr robot", "status": "vista", "progress": ""}, {"title": "Narcos", "status": "vista", "progress": ""}, {"title": "Ocurrio en la orilla del rio", "status": "pendiente", "progress": ""}, {"title": "Oktoberfest sangre y cerveza", "status": "vista", "progress": ""}, {"title": "Operacion Telemark", "status": "vista", "progress": ""}, {"title": "Operacion Extasis", "status": "pendiente", "progress": ""}, {"title": "Orange is the new Black", "status": "pendiente", "progress": ""}, {"title": "Ourika", "status": "pendiente", "progress": ""}, {"title": "Our boys", "status": "vista", "progress": ""}, {"title": "Outsiders", "status": "vista", "progress": ""}, {"title": "Oz", "status": "vista", "progress": ""}, {"title": "Ozark", "status": "pendiente", "progress": ""}, {"title": "Palomares", "status": "pendiente", "progress": ""}, {"title": "Paris Police 1900", "status": "pendiente", "progress": ""}, {"title": "Paris Police 1905", "status": "pendiente", "progress": ""}, {"title": "Parot t1", "status": "viendo", "progress": "T1"}, {"title": "Patria", "status": "vista", "progress": ""}, {"title": "Peaky Blinders", "status": "pendiente", "progress": ""}, {"title": "Penny Dreadful", "status": "vista", "progress": ""}, {"title": "Perdidos", "status": "vista", "progress": ""}, {"title": "Podria destruirte", "status": "pendiente", "progress": ""}, {"title": "Power", "status": "pendiente", "progress": ""}, {"title": "Powers", "status": "vista", "progress": ""}, {"title": "Prision Break", "status": "pendiente", "progress": ""}, {"title": "Ragnarok", "status": "pendiente", "progress": ""}, {"title": "Rehenes", "status": "vista", "progress": ""}, {"title": "Resident Evil Oscuridad infinita", "status": "pendiente", "progress": ""}, {"title": "Revolution", "status": "vista", "progress": ""}, {"title": "Riphagem el canicero holandes", "status": "pendiente", "progress": ""}, {"title": "Roma", "status": "vista", "progress": ""}, {"title": "Romulus", "status": "pendiente", "progress": ""}, {"title": "Secret Invasion", "status": "pendiente", "progress": ""}, {"title": "Seduced inside the NXIVM Cult", "status": "pendiente", "progress": ""}, {"title": "See", "status": "pendiente", "progress": ""}, {"title": "Sleepy hollow", "status": "vista", "progress": ""}, {"title": "Sneaky Pete", "status": "pendiente", "progress": ""}, {"title": "Spartacus", "status": "vista", "progress": ""}, {"title": "Star Wars La remesa mala", "status": "pendiente", "progress": ""}, {"title": "Terra nova", "status": "vista", "progress": ""}, {"title": "The Acolyte", "status": "pendiente", "progress": ""}, {"title": "The American West", "status": "pendiente", "progress": ""}, {"title": "The amaricans", "status": "vista", "progress": ""}, {"title": "The Boys 3x1", "status": "viendo", "progress": "3x1"}, {"title": "The English", "status": "pendiente", "progress": ""}, {"title": "The girlsfriend experience 3X1", "status": "viendo", "progress": "3x1"}, {"title": "The Good fight", "status": "pendiente", "progress": ""}, {"title": "The Last Kingdom", "status": "pendiente", "progress": ""}, {"title": "The Last US 1", "status": "pendiente", "progress": ""}, {"title": "The leftovers", "status": "pendiente", "progress": ""}, {"title": "The mandalorian 3X1", "status": "viendo", "progress": "3x1"}, {"title": "The Pacific", "status": "vista", "progress": ""}, {"title": "The ranch", "status": "vista", "progress": ""}, {"title": "The returned", "status": "vista", "progress": ""}, {"title": "The royals", "status": "pendiente", "progress": ""}, {"title": "The son", "status": "vista", "progress": ""}, {"title": "The spanish princess", "status": "pendiente", "progress": ""}, {"title": "Transporter", "status": "vista", "progress": ""}, {"title": "Turn", "status": "vista", "progress": ""}, {"title": "Un golpe maestro", "status": "pendiente", "progress": ""}, {"title": "Unorthodox", "status": "pendiente", "progress": ""}, {"title": "Utopía", "status": "vista", "progress": ""}, {"title": "Van Helsing", "status": "pendiente", "progress": ""}, {"title": "Valkyrien", "status": "pendiente", "progress": ""}, {"title": "Vegas", "status": "pendiente", "progress": ""}, {"title": "Vikingos", "status": "pendiente", "progress": ""}, {"title": "Vikingos en el Valhalla", "status": "pendiente", "progress": ""}, {"title": "Wallander", "status": "pendiente", "progress": ""}, {"title": "Wisting t1", "status": "viendo", "progress": "T1"}, {"title": "Without Sin: Libre de culpa", "status": "pendiente", "progress": ""}, {"title": "Wynonna Earp", "status": "pendiente", "progress": ""}, {"title": "Yellowstone", "status": "pendiente", "progress": ""}, {"title": "Warrior", "status": "pendiente", "progress": ""}, {"title": "Westworld", "status": "pendiente", "progress": ""}, {"title": "Strike back", "status": "pendiente", "progress": ""}];
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBfs_xzOnfUdgeZMMxW22zfbrvS6mfhkJs",
+  authDomain: "seriestracker-78eae.firebaseapp.com",
+  projectId: "seriestracker-78eae",
+  storageBucket: "seriestracker-78eae.firebasestorage.app",
+  messagingSenderId: "270115786751",
+  appId: "1:270115786751:web:bb09c336fb183a6529a1ca"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const docRef = db.collection('seriestracker').doc('main');
+
+let series = [];
+let editingIndex = null;
+let currentFilter = 'todas';
+let currentSearch = '';
+let isRemoteUpdate = false;
+
+function loadData(){
+  docRef.onSnapshot((snap) => {
+    if(snap.exists && snap.data().items){
+      isRemoteUpdate = true;
+      series = snap.data().items;
+      if(document.getElementById('overlay').style.display !== 'flex'){
+        render();
+      }
+    } else {
+      series = SEED.map(s => ({...s}));
+      persist();
+    }
+  }, (err) => {
+    console.error('Error de conexión con la base de datos', err);
+    if(series.length === 0){
+      series = SEED.map(s => ({...s}));
+      render();
+    }
+  });
+}
+
+function persist(){
+  docRef.set({ items: series }).catch(e=>{
+    console.error('No se pudo guardar', e);
+  });
+}
+
+function colorFor(title){
+  const palette = ['#5b3a8e','#1f6f5c','#8e3a3a','#3a5a8e','#8e6e1f','#3a8e7f','#6e3a8e','#8e3a5f','#2f4d8e','#8e5a1f'];
+  let h = 0;
+  for(let i=0;i<title.length;i++) h = title.charCodeAt(i) + ((h<<5)-h);
+  return palette[Math.abs(h) % palette.length];
+}
+
+function statusLabel(s){
+  return s === 'vista' ? 'Vista' : (s === 'viendo' ? 'Viendo' : 'Pendiente');
+}
+
+function renderFilters(){
+  const counts = { todas: series.length, vista:0, viendo:0, pendiente:0 };
+  series.forEach(s => counts[s.status] = (counts[s.status]||0)+1);
+  const defs = [
+    ['todas','Todas'], ['viendo','Viendo'], ['vista','Vistas'], ['pendiente','Pendientes']
+  ];
+  const el = document.getElementById('filters');
+  el.innerHTML = defs.map(([key,label]) => `
+    <button class="pill ${currentFilter===key?'active':''}" data-f="${key}">
+      ${label} <span class="count">${counts[key]||0}</span>
+    </button>
+  `).join('');
+  el.querySelectorAll('.pill').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      currentFilter = btn.dataset.f;
+      render();
+    });
+  });
+}
+
+function render(){
+  renderFilters();
+  const q = currentSearch.trim().toLowerCase();
+  let list = series.map((s,i)=>({...s, _i:i}));
+  if(currentFilter !== 'todas') list = list.filter(s => s.status === currentFilter);
+  if(q) list = list.filter(s => s.title.toLowerCase().includes(q));
+  list.sort((a,b)=> a.title.localeCompare(b.title, 'es'));
+
+  document.getElementById('stats').textContent = `${list.length} de ${series.length} series`;
+
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  if(list.length === 0){
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  grid.innerHTML = list.map(s => `
+    <div class="card" style="background:${colorFor(s.title)}" data-i="${s._i}">
+      <div class="letter">${s.title.trim().charAt(0).toUpperCase()}</div>
+      <div class="badge ${s.status}">${statusLabel(s.status)}</div>
+      <div class="foot">
+        <div class="title">${escapeHtml(s.title)}</div>
+        ${s.progress ? `<div class="progress">${escapeHtml(s.progress)}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.card').forEach(card=>{
+    card.addEventListener('click', ()=> openModal(parseInt(card.dataset.i)));
+  });
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function openModal(index){
+  editingIndex = index;
+  const s = index !== null ? series[index] : { title:'', status:'pendiente', progress:'' };
+  document.getElementById('modalTitle').textContent = index !== null ? 'Editar serie' : 'Añadir serie';
+  document.getElementById('fTitle').value = s.title;
+  document.getElementById('fProgress').value = s.progress || '';
+  setStatusSelection(s.status);
+  document.getElementById('deleteBtn').style.display = index !== null ? 'block' : 'none';
+  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('fTitle').focus();
+}
+
+function closeModal(){
+  document.getElementById('overlay').style.display = 'none';
+  editingIndex = null;
+}
+
+function setStatusSelection(status){
+  const seg = document.getElementById('statusSeg');
+  seg.querySelectorAll('button').forEach(b=>{
+    b.classList.remove('sel-vista','sel-viendo','sel-pendiente');
+    if(b.dataset.v === status) b.classList.add('sel-'+status);
+  });
+  seg.dataset.selected = status;
+}
+
+document.getElementById('statusSeg').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  setStatusSelection(btn.dataset.v);
+});
+
+document.getElementById('addBtn').addEventListener('click', ()=> openModal(null));
+document.getElementById('cancelBtn').addEventListener('click', closeModal);
+document.getElementById('overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'overlay') closeModal();
+});
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  const title = document.getElementById('fTitle').value.trim();
+  if(!title) return;
+  const progress = document.getElementById('fProgress').value.trim();
+  const status = document.getElementById('statusSeg').dataset.selected || 'pendiente';
+  if(editingIndex !== null){
+    series[editingIndex] = { title, progress, status };
+  } else {
+    series.push({ title, progress, status });
+  }
+  persist();
+  closeModal();
+  render();
+});
+
+document.getElementById('deleteBtn').addEventListener('click', ()=>{
+  if(editingIndex === null) return;
+  series.splice(editingIndex, 1);
+  persist();
+  closeModal();
+  render();
+});
+
+document.getElementById('search').addEventListener('input', (e)=>{
+  currentSearch = e.target.value;
+  render();
+});
+
+loadData();
+</script>
+</body>
+</html>
